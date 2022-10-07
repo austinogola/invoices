@@ -1,4 +1,5 @@
 from flask import Flask,jsonify,request
+from main import execute
 
 app=Flask(__name__)
 
@@ -10,9 +11,11 @@ def invoice():
     service=data['service']
     charges=data['charges']
 
-    print(invoice,client)
+    print(invoice,client,service,charges)
 
-    return (invoice,client,service)
+    execute(invoice,client,service,charges)
+
+    return ('Successful')
     
 
 
