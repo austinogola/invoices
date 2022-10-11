@@ -10,8 +10,7 @@ def invoice():
     client=data['client']
     service=data['service']
     charges=data['charges']
-
-    print(invoice,client,service,charges)
+    print('receiving')
 
     execute(invoice,client,service,charges)
 
