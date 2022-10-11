@@ -64,6 +64,8 @@ def execute(invoice,client,service,charges):
     #Fill invoice(Update copy)
     fill_template(all_data,copy_id)
     print('Template filled')
+
+    fill_services(service_items,copy_id)
     
     
     #Rename the file to its invoice number
@@ -249,6 +251,52 @@ def handle_day(day,month_id):
     day_id=get_id(day)
 
     return (day_id)
+
+def fill_services(services,copy_id):
+    print('aaa')
+
+def create_table():
+    Invoices_folder=get_id('Invoices')
+
+    files=drive_service.files().list(q='name = "invoice2" ').execute()
+    items=files.get('files',[])
+    template_id=items[0]['id']
+
+    respo=drive_service.files().copy(fileId=template_id).execute()
+    copy_id=respo.get('id')
+
+    # requests=[{
+    #     'insertTable':{
+    #         'rows': 1,
+    #         'columns': 3,
+    #         'endOfSegmentLocation': {
+    #             'segmentId': 'services'
+    #       }
+    #     }
+    # }]
+
+    requests=[{
+        'insertText':{
+            'location':{
+                "index":323
+            },
+            'text':'\nThis is the text to insert'
+        }
+    }]
+
+    result = doc_service.documents().batchUpdate(documentId=copy_id, body={'requests': requests}).execute()
+
+    rename(copy_id,'trial10.pdf')
+
+    move_copy(copy_id,Invoices_folder)
+
+
+create_table()
+
+
+
+
+
     
 
 
