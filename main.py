@@ -6,6 +6,7 @@ from google.oauth2 import service_account
 import os.path
 from googleapiclient.http import MediaFileUpload
 import calendar
+from fstore import add_to_store 
 
 DOC_SCOPES = ['https://www.googleapis.com/auth/documents']
 DRIVE_SCOPES = ['https://www.googleapis.com/auth/drive']
@@ -42,15 +43,14 @@ def execute(invoice,client,service,charges):
     all_data=[invoice_number,invoice_date,client_name,client_location,client_phone,client_email,service_type,
     service_date]
 
-    # subtotal=get_subtotal()
-    # tax_rate=charges['tax_rate']
-    # other_charges=charges['other charges']
+    tax_rate=charges['tax_rate']
+    other_charges=charges['other charges']
     # total
 
 
 
     #fetch invoice template
-    files=drive_service.files().list(q='name = "invoice" ').execute()
+    files=drive_service.files().list(q='name = "invoice2" ').execute()
     items=files.get('files',[])
     template_id=items[0]['id']
     print('Fetched template')
@@ -66,6 +66,8 @@ def execute(invoice,client,service,charges):
     print('Template filled')
 
     fill_services(service_items,copy_id)
+
+    fill_totals(service_items,copy_id,tax_rate,other_charges)
     
     
     #Rename the file to its invoice number
@@ -91,6 +93,8 @@ def execute(invoice,client,service,charges):
     move_copy(copy_id,date_folder_id)
     print('copy moved to date folder')
 
+    add_to_store(invoice,client,service,charges)
+
     return 'Successfull'
 
 
@@ -98,7 +102,7 @@ def execute(invoice,client,service,charges):
 
 
 def get_template_id():
-    return (get_id('invoice'))
+    return (get_id('invoice2'))
 
 def fill_template(entries,copy_id):
     single_slots=[
@@ -252,8 +256,88 @@ def handle_day(day,month_id):
 
     return (day_id)
 
-def fill_services(services,copy_id):
-    print('aaa')
+def fill_services(services,file_id):
+
+    print(len(services)+13)
+
+    index=310
+    services.reverse()
+
+    for serv in services:
+        
+        rem=len(serv['description'])
+        amount=f"{serv['amount']:,}"
+        if rem>=20:
+            txt=f'\n{serv["id"]}.\t\t{serv["description"]} \t\t\t\t{amount}\n'
+        else:
+            txt=f'\n{serv["id"]}.\t\t{serv["description"]} \t\t\t\t\t{amount}\n'
+
+        requests=[{
+        'insertText':{
+            'location':{
+                "index":276
+            },
+            'text':txt
+        }
+        }]
+        
+        result = doc_service.documents().batchUpdate(documentId=file_id, body={'requests': requests}).execute()
+
+
+def fill_totals(services,file_id,tax_rate,other_charges):
+    slots=[
+        '<<subtotal>>','<<tax rate>>','<<total>>']
+
+    reqs=[]
+
+    tax_rate_num=float(tax_rate[:-1])
+
+    subtotal=0
+    for item in services:
+        subtotal+=item['amount']
+        
+    total=subtotal+(subtotal*(tax_rate_num/100))
+
+    total=f'{total:,}'
+    subtotal=f'{subtotal:,}'
+
+    entries=[subtotal,tax_rate,total]
+
+    if other_charges==0 or not other_charges:
+        reqs.append({
+            'replaceAllText':{
+                'containsText':{
+                    "text":'<<others>>',
+                    "matchCase":True
+                },
+                "replaceText":'-'
+            }
+        })
+    else:
+        reqs.append({
+            'replaceAllText':{
+                'containsText':{
+                    "text":'<<others>>',
+                    "matchCase":True
+                },
+                "replaceText":str(other_charges)
+            }
+        })
+
+
+    for index,slot in enumerate(slots):
+        reqs.append({
+            'replaceAllText':{
+                'containsText':{
+                    "text":f"{slot}",
+                    "matchCase":True
+                    },
+                "replaceText":str(entries[index])
+                }
+        })
+    
+    result=doc_service.documents().batchUpdate(documentId=file_id,body={'requests':reqs}).execute()
+
 
 def create_table():
     Invoices_folder=get_id('Invoices')
@@ -291,7 +375,7 @@ def create_table():
     move_copy(copy_id,Invoices_folder)
 
 
-create_table()
+# create_table()
 
 
 
